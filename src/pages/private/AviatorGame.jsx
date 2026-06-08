@@ -652,6 +652,13 @@ export default function AviatorGame() {
         setBettedUsers([]);
         return;
       }
+      if (gameStateRef.current === 'GAMEEND') {
+        setBettedUsers(prev => prev.map(u =>
+          u.cashouted ? u : { ...u, crashed: true }
+        ));
+        return;
+      }
+      const currentMax = curMultiplierRef.current;
       setBettedUsers(prev => {
         let updated = prev.filter(u => u.maintained);
         updated = updated.map(u => ({ ...u, maintained: false }));
@@ -673,8 +680,9 @@ export default function AviatorGame() {
         }
         if (updated.length > 35) updated = updated.slice(0, 35);
         return updated.map(u => {
-          if (!u.cashouted && Math.random() < 0.15) {
-            const coMult = 1 + Math.random() * 8;
+          if (!u.cashouted && !u.crashed && Math.random() < 0.15) {
+            const maxCo = Math.max(1.01, currentMax - 0.01);
+            const coMult = 1 + Math.random() * (maxCo - 1);
             return { ...u, cashouted: true, cashOut: parseFloat(coMult.toFixed(2)), maintained: true };
           }
           return { ...u, maintained: true };
@@ -685,21 +693,24 @@ export default function AviatorGame() {
   }, []);
 
   useEffect(() => {
-    const betAmounts = [10, 20, 50, 100, 200, 500];
-    const myBetsData = [];
-    for (let i = 0; i < 20; i++) {
-      const d = new Date(Date.now() - i * 60000 * (5 + Math.random() * 20));
-      const amt = pick(betAmounts);
-      const won = Math.random() < 0.4;
-      myBetsData.push({
-        _id: 'f_' + i,
-        date: d.toISOString(),
-        betAmount: amt,
-        cashoutAt: won ? parseFloat((1.1 + Math.random() * 15).toFixed(2)) : 0
-      });
-    }
-    setMyBets(myBetsData);
-  }, []);
+    const fetchMyBets = async () => {
+      try {
+        const res = await api.get('/game/history');
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(b => ({
+            _id: b.id,
+            date: b.created_at,
+            betAmount: parseFloat(b.amount) || 0,
+            cashoutAt: b.cash_out_at ? parseFloat(b.cash_out_at) : 0,
+            status: b.status,
+            payout: b.payout ? parseFloat(b.payout) : 0
+          }));
+          setMyBets(mapped);
+        }
+      } catch {}
+    };
+    if (gameState === 'BET') fetchMyBets();
+  }, [gameState]);
 
   useEffect(() => {
     const topNames = ['R***y', 'V***t', 'S***h', 'A***k', 'M***l', 'K***n', 'D***j', 'P***l', 'J***s', 'L***i'];
@@ -928,16 +939,6 @@ export default function AviatorGame() {
       soundRef.current.stop('main');
     }
   }, [gameState, soundEnabled]);
-
-  useEffect(() => {
-    const fetchMyBets = async () => {
-      try {
-        const res = await api.get('/game/history');
-        if (res.data?.success && Array.isArray(res.data.data)) setMyBets(res.data.data);
-      } catch {}
-    };
-    if (gameState === 'BET') fetchMyBets();
-  }, [gameState]);
 
   useEffect(() => {
     if (gameState === 'BET') {
@@ -1740,7 +1741,7 @@ export default function AviatorGame() {
                 </div>
                 <div className="bets-scroll">
                   {bettedUsers.map((u, i) => (
-                    <div key={i} className={`bet-item ${u.cashouted ? 'celebrated' : ''}`}>
+                    <div key={i} className={`bet-item ${u.cashouted ? 'celebrated' : u.crashed ? 'crashed' : ''}`}>
                       <div className="user">
                         <img className="avatar" src={`https://api.dicebear.com/7.x/identicon/png?seed=${u.name || 'user'}&size=16`} alt="" />
                         <div className="username">{u.name || 'u***r'}</div>
@@ -1749,6 +1750,11 @@ export default function AviatorGame() {
                       {u.cashouted && (
                         <div className="multiplier-block">
                           <div className="bubble">{(u.cashOut || 0).toFixed(2)}</div>
+                        </div>
+                      )}
+                      {u.crashed && (
+                        <div className="multiplier-block">
+                          <div className="bubble crashed-bubble">X</div>
                         </div>
                       )}
                       <div className="cash-out-amount">{u.cashouted ? (u.betAmount * u.cashOut || 0).toFixed(2) : ''}</div>

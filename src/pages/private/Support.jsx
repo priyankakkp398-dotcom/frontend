@@ -11,7 +11,7 @@ export default function Support() {
         <p className="text-gray-500 text-xs mb-6">Reach out to our support team</p>
 
         <a
-          href="mailto:paisahipaisa560@gmail.com"
+          href="mailto:paisahipaisa034@gmail.com"
           className="btn-neon w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
         >
           <Mail size={18} />

@@ -122,7 +122,7 @@ export default function Layout({ children }) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={() => window.location.href = 'mailto:paisahipaisa560@gmail.com'} className="btn-dark flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]">
+            <button onClick={() => window.location.href = 'mailto:paisahipaisa034@gmail.com'} className="btn-dark flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]">
               <Headphones size={14} className="text-neon-green" />
               <span className="text-gray-300 font-medium">Support</span>
             </button>

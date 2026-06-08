@@ -296,6 +296,8 @@ body {
 .data-list .bets-scroll { margin: 0; height: 100% !important; overflow-y: auto; }
 .data-list .bets-scroll .bet-item { height: 34px; margin-top: 2px; border-radius: 8px; background-color: #101112; border: solid 1px #101112; font-size: 14px; color: #bbbfc5; display: flex; align-items: center; padding: 0 10px; }
 .data-list .bets-scroll .bet-item.celebrated { border-color: #427f00; background-color: #123405; color: #fff; }
+.data-list .bets-scroll .bet-item.crashed { border-color: #7f1d1d; background-color: #1a0a0a; color: #aaa; }
+.data-list .bets-scroll .bet-item .multiplier-block .bubble.crashed-bubble { color: #ff4444; background-color: #2a0000; }
 .data-list .bets-scroll .bet-item .user { width: 19%; display: flex; align-items: center; gap: 5px; }
 .data-list .bets-scroll .bet-item .user .username { font-size: 13px; color: #9ea0a3; }
 .data-list .bets-scroll .bet-item .bet-amount { min-width: 30%; padding-right: 10px; display: flex; justify-content: flex-end; font-size: 13px; }
