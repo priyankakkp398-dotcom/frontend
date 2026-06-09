@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Smartphone, Gift, Gamepad2, Save, Headphones, MessageCircle, Send } from 'lucide-react';
+import { Settings, Smartphone, Gift, Gamepad2, Save, Headphones, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
@@ -12,6 +12,8 @@ export default function AdminSettings() {
   const [highMultFreq, setHighMultFreq] = useState(2);
   const [support, setSupport] = useState({ telegram: '', whatsapp: '' });
   const [loading, setLoading] = useState({ payment: false, bonus: false, game: false, support: false });
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     api.get('/admin/payment-settings').then(({ data }) => {
@@ -90,6 +92,18 @@ export default function AdminSettings() {
       } else toast.error(data.message);
     } catch { toast.error('Failed to save game settings'); }
     finally { setLoading(p => ({ ...p, game: false })); }
+  };
+
+  const handleResetData = async () => {
+    setResetting(true);
+    try {
+      const { data } = await api.post('/admin/reset-data');
+      if (data.success) {
+        toast.success('All user data has been reset!');
+        setShowResetConfirm(false);
+      } else toast.error(data.message);
+    } catch { toast.error('Failed to reset data'); }
+    finally { setResetting(false); }
   };
 
   return (
@@ -195,6 +209,35 @@ export default function AdminSettings() {
               <Save size={13} /> {loading.support ? 'Saving...' : 'Save Support'}
             </button>
           </form>
+        </div>
+        {/* Reset Data */}
+        <div className="glass-card rounded-xl p-4 border border-red-500/20">
+          <div className="flex items-center gap-2 mb-3">
+            <Trash2 size={16} className="text-red-400" />
+            <h3 className="text-white text-xs font-bold uppercase tracking-wider">Reset Data</h3>
+          </div>
+          <p className="text-gray-500 text-[10px] mb-3">This will permanently delete all users, bets, transactions, withdrawals, deposits, and game rounds. Admin accounts are kept. This action cannot be undone.</p>
+          {showResetConfirm ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-red-400 text-[10px]">
+                <AlertTriangle size={12} />
+                <span>Are you sure?</span>
+              </div>
+              <button onClick={handleResetData} disabled={resetting}
+                className="btn-neon bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30 py-2 px-3 rounded-lg text-xs font-bold">
+                {resetting ? 'Resetting...' : 'Yes, Reset All'}
+              </button>
+              <button onClick={() => setShowResetConfirm(false)}
+                className="btn-dark py-2 px-3 rounded-lg text-xs">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setShowResetConfirm(true)}
+              className="btn-neon bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 w-full">
+              <Trash2 size={13} /> Reset All Data
+            </button>
+          )}
         </div>
       </div>
     </div>
