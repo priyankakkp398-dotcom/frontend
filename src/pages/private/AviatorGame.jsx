@@ -392,7 +392,7 @@ export default function AviatorGame() {
   const [bigWins, setBigWins] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  const [fBet, setFBet] = useState({ amount: 20, target: 2, status: 'idle', betted: false, cashouted: false, cashAmount: 0 });
+  const [fBet, setFBet] = useState({ amount: 20, target: 2, status: 'idle', betted: false, cashouted: false, cashAmount: 0, betId: null });
   const [fGameType, setFGameType] = useState('manual');
   const [fAutoCashout, setFAutoCashout] = useState(false);
   const [fAutoActive, setFAutoActive] = useState(false);
@@ -409,7 +409,7 @@ export default function AviatorGame() {
   const fDecreaseTotal = useRef(0);
 
   const [sPanel, setSPanel] = useState(false);
-  const [sBet, setSBet] = useState({ amount: 20, target: 2, status: 'idle', betted: false, cashouted: false, cashAmount: 0 });
+  const [sBet, setSBet] = useState({ amount: 20, target: 2, status: 'idle', betted: false, cashouted: false, cashAmount: 0, betId: null });
   const [sGameType, setSGameType] = useState('manual');
   const [sAutoCashout, setSAutoCashout] = useState(false);
   const [sAutoActive, setSAutoActive] = useState(false);
@@ -430,7 +430,7 @@ export default function AviatorGame() {
 
   const [headerType, setHeaderType] = useState('all');
   const [myBets, setMyBets] = useState([]);
-  const [betLimits, setBetLimits] = useState({ min: 100, max: 100000 });
+  const [betLimits, setBetLimits] = useState({ min: 10, max: 100000 });
   const [rechargeState, setRechargeState] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
@@ -449,6 +449,7 @@ export default function AviatorGame() {
   const dataPointsRef = useRef([]);
   const rocketImgRef = useRef(null);
   const rocketGifRef = useRef(null);
+  const cashoutingRef = useRef(false);
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { pointsRef.current = points; }, [points]);
@@ -575,8 +576,8 @@ export default function AviatorGame() {
         curMultiplierRef.current = 1.0;
         setCrashProgress(0);
         crashProgressRef.current = 0;
-        setFBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0 }));
-        setSBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0 }));
+        setFBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0, betId: null }));
+        setSBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0, betId: null }));
       }
       setCountdown(data.countdown || 0);
     });
@@ -613,8 +614,8 @@ export default function AviatorGame() {
       endMultiplierRef.current = cm;
       setCurrentMultiplier(cm);
       curMultiplierRef.current = cm;
-      setFBet(prev => ({ ...prev, betted: false, cashouted: false }));
-      setSBet(prev => ({ ...prev, betted: false, cashouted: false }));
+      setFBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0, betId: null }));
+      setSBet(prev => ({ ...prev, betted: false, cashouted: false, cashAmount: 0, betId: null }));
       setFBetState(false);
       setSBetState(false);
     });
@@ -733,7 +734,7 @@ export default function AviatorGame() {
     const doBet = async (idx) => {
       const isF = idx === 'f';
       const bet = isF ? fBet : sBet;
-      const amt = parseFloat(bet.amount) || 100;
+      const amt = parseFloat(bet.amount) || 10;
       if (amt < betLimits.min) {
         toast.error(`Minimum bet is ${betLimits.min}`);
         isF ? setFBetState(false) : setSBetState(false);
@@ -752,10 +753,12 @@ export default function AviatorGame() {
           setBalance(newBal);
           setUser(prev => prev ? { ...prev, balance: newBal } : prev);
           if (isF) {
-            setFBet(prev => ({ ...prev, betted: true }));
+            const bid = res.data.data?.betId;
+            setFBet(prev => ({ ...prev, betted: true, betId: bid }));
             setFBetState(false);
           } else {
-            setSBet(prev => ({ ...prev, betted: true }));
+            const bid = res.data.data?.betId;
+            setSBet(prev => ({ ...prev, betted: true, betId: bid }));
             setSBetState(false);
           }
           soundRef.current.betPlaced();
@@ -801,23 +804,35 @@ export default function AviatorGame() {
     }
   };
 
-  const cashOutSocket = (idx) => {
+  const cashOutSocket = async (idx) => {
     const isF = idx === 'f';
     const bet = isF ? fBet : sBet;
     if (gameState !== 'PLAYING' || !bet.betted || bet.cashouted) return;
-    const curMult = displayedMultiplierRef.current || 1;
-    const payout = parseFloat((bet.amount * curMult).toFixed(2));
-    const newBal = parseFloat((balance + payout).toFixed(2));
-    if (isF) {
-      setFBet(prev => ({ ...prev, cashouted: true, cashAmount: payout }));
-    } else {
-      setSBet(prev => ({ ...prev, cashouted: true, cashAmount: payout }));
+    if (cashoutingRef.current) return;
+    cashoutingRef.current = true;
+    try {
+      const res = await api.post('/game/cashout', { betId: bet.betId || null });
+      if (res.data?.success) {
+        const payout = parseFloat(res.data.data?.payout || 0);
+        const newBal = typeof res.data.data?.balance === 'number' ? res.data.data.balance : parseFloat((balance + payout).toFixed(2));
+        if (isF) {
+          setFBet(prev => ({ ...prev, cashouted: true, cashAmount: payout }));
+        } else {
+          setSBet(prev => ({ ...prev, cashouted: true, cashAmount: payout }));
+        }
+        setBalance(newBal);
+        setUser(prev => prev ? { ...prev, balance: newBal } : prev);
+        soundRef.current.cashOut();
+        confettiRef.current?.burst(50);
+        toast.success(`Cashed out ${payout.toFixed(2)} INR @ ${(res.data.data?.cashoutMultiplier || 1).toFixed(2)}x`);
+      } else {
+        toast.error(res.data?.message || 'Cashout failed');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Cashout failed');
+    } finally {
+      cashoutingRef.current = false;
     }
-    setBalance(newBal);
-    setUser(prev => prev ? { ...prev, balance: newBal } : prev);
-    soundRef.current.cashOut();
-    confettiRef.current?.burst(50);
-    toast.success(`Cashed out ${payout.toFixed(2)} INR @ ${curMult.toFixed(2)}x`);
   };
 
 
